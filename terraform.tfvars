@@ -1,0 +1,7 @@
+vpc_id = "vpc-08c27a6f28c385fd6"
+public_subnet_1 = "subnet-041a3e85013396830"
+private_subnet_1 = "subnet-0eaba87d1758b13c7"
+security_group = "sg-09a747fc4d84ca6ff"
+region = "us-east-1"
+upload_bucket = "docupload"
+function_name = "translate_tool"
