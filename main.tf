@@ -139,17 +139,24 @@ resource "aws_cloudwatch_log_group" "online_processor" {
 data "aws_iam_policy_document" "online_processor_policy_doc" {
   statement {
     actions = [
-      "s3:List*",
-      "s3:Put*", 
-      "s3:Get*",
-      "bedrock:*",
       "ec2:CreateNetworkInterface",
       "ec2:DescribeNetworkInterfaces",
-      "ec2:DeleteNetworkInterface",
-      "dynamodb:*"
-
+      "ec2:DeleteNetworkInterface"
     ]
     resources = ["*"]
+  }
+  statement {
+    actions = [
+      "bedrock:InvokeModelWithResponseStream",
+      "bedrock:InvokeModel"
+    ]
+    resources = ["arn:aws:bedrock:*::foundation-model/*"]
+  }
+  statement {
+    actions = [
+      "dynamodb:GetItem"
+    ]
+    resources = ["arn:aws:dynamodb:*:*:table/*"]
   }
   statement {
     actions = [
@@ -258,17 +265,46 @@ resource "aws_iam_policy" "glue_job_policy" {
     {
       "Effect": "Allow",
       "Action": [
-        "s3:List*",
-        "s3:Get*",
-        "s3:Put*",
-        "dynamodb:*",
-        "glue:*",
-        "ec2:*",
-        "logs:CreateLogGroup",
-        "logs:CreateLogStream",
-        "logs:PutLogEvents"
+        "dynamodb:CreateTable",
+        "dynamodb:DescribeTable",
+        "dynamodb:BatchWriteItem"
       ],
-      "Resource": "*"
+      "Resource": "arn:aws:dynamodb:*:*:table/*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject"
+      ],
+      "Resource": "arn:aws:s3:::*/*"
+    },
+    {
+      "Effect": "Allow",
+        "Action": [
+          "ec2:CreateNetworkInterface",
+          "ec2:DeleteNetworkInterface",
+          "ec2:DescribeNetworkInterfaces",
+          "ec2:DescribeRouteTables",
+          "ec2:DescribeSecurityGroups",
+          "ec2:DescribeSubnets",
+          "ec2:DescribeVpcEndpoints",
+          "ec2:CreateTags"
+        ],
+        "Resource":"*"
+    },
+    {
+      "Effect": "Allow",
+        "Action": [
+          "logs:CreateLogStream"
+        ],
+        "Resource": "arn:aws:logs:*:*:log-group:/*"
+    },
+    {
+      "Effect": "Allow",
+        "Action": [
+          "glue:GetConnection"
+        ],
+        "Resource": "arn:aws:glue:*:*:*"
     }
   ]
 }
