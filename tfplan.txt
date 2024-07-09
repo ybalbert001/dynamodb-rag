@@ -2,6 +2,7 @@
 Terraform used the selected providers to generate the following execution
 plan. Resource actions are indicated with the following symbols:
   ~ update in-place
+-/+ destroy and then create replacement
 
 Terraform will perform the following actions:
 
@@ -48,4 +49,81 @@ Terraform will perform the following actions:
         # (2 unchanged attributes hidden)
     }
 
-Plan: 0 to add, 2 to change, 0 to destroy.
+  # aws_lambda_function.online_processor will be updated in-place
+  ~ resource "aws_lambda_function" "online_processor" {
+        id                             = "translate_tool"
+      ~ image_uri                      = "845524701534.dkr.ecr.us-east-1.amazonaws.com/musical-sheep@sha256:9d6e119b6829385ecb2f017e174ce25a1201a7076b22cd7cb1de6d9fd94ca49a" -> (known after apply)
+      ~ last_modified                  = "2024-07-06T16:34:35.000+0000" -> (known after apply)
+        tags                           = {}
+        # (26 unchanged attributes hidden)
+
+        # (5 unchanged blocks hidden)
+    }
+
+  # module.docker_build.docker_image.this must be replaced
+-/+ resource "docker_image" "this" {
+      ~ id           = "sha256:d607af350a441889074633840f6f4d7dc5af0144705ef47b75d114261d932ccc845524701534.dkr.ecr.us-east-1.amazonaws.com/musical-sheep" -> (known after apply)
+      ~ image_id     = "sha256:d607af350a441889074633840f6f4d7dc5af0144705ef47b75d114261d932ccc" -> (known after apply)
+        name         = "845524701534.dkr.ecr.us-east-1.amazonaws.com/musical-sheep"
+      ~ repo_digest  = "845524701534.dkr.ecr.us-east-1.amazonaws.com/musical-sheep@sha256:9d6e119b6829385ecb2f017e174ce25a1201a7076b22cd7cb1de6d9fd94ca49a" -> (known after apply)
+      ~ triggers     = { # forces replacement
+          ~ "dir_sha" = "9ca27496a797472b3eaab3d5331bd36e7bb58e46" -> "216f58941f700782d9f6421784f540dc1babc7fb"
+        }
+        # (2 unchanged attributes hidden)
+
+      - build {
+          - build_arg       = {} -> null
+          - build_args      = {
+              - "FOO" = "bar"
+            } -> null
+          - cache_from      = [] -> null
+          - context         = "code/online_process" -> null
+          - cpu_period      = 0 -> null
+          - cpu_quota       = 0 -> null
+          - cpu_shares      = 0 -> null
+          - dockerfile      = "Dockerfile" -> null
+          - extra_hosts     = [] -> null
+          - force_remove    = false -> null
+          - label           = {} -> null
+          - labels          = {} -> null
+          - memory          = 0 -> null
+          - memory_swap     = 0 -> null
+          - no_cache        = false -> null
+          - platform        = "linux/amd64" -> null
+          - pull_parent     = false -> null
+          - remove          = true -> null
+          - security_opt    = [] -> null
+          - shm_size        = 0 -> null
+          - squash          = false -> null
+          - suppress_output = false -> null
+          - tag             = [] -> null
+            # (10 unchanged attributes hidden)
+        }
+      + build {
+          + build_args     = {
+              + "FOO" = "bar"
+            }
+          + cache_from     = []
+          + context        = "code/online_process"
+          + dockerfile     = "Dockerfile"
+          + extra_hosts    = []
+          + platform       = "linux/amd64"
+          + remove         = true
+          + security_opt   = []
+          + tag            = []
+            # (10 unchanged attributes hidden)
+        }
+    }
+
+  # module.docker_build.docker_registry_image.this must be replaced
+-/+ resource "docker_registry_image" "this" {
+      ~ id                   = "sha256:9d6e119b6829385ecb2f017e174ce25a1201a7076b22cd7cb1de6d9fd94ca49a" -> (known after apply)
+        name                 = "845524701534.dkr.ecr.us-east-1.amazonaws.com/musical-sheep"
+      ~ sha256_digest        = "sha256:9d6e119b6829385ecb2f017e174ce25a1201a7076b22cd7cb1de6d9fd94ca49a" -> (known after apply)
+      ~ triggers             = { # forces replacement
+          ~ "dir_sha" = "9ca27496a797472b3eaab3d5331bd36e7bb58e46" -> "216f58941f700782d9f6421784f540dc1babc7fb"
+        }
+        # (2 unchanged attributes hidden)
+    }
+
+Plan: 2 to add, 3 to change, 2 to destroy.

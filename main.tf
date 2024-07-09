@@ -101,6 +101,7 @@ resource "aws_lambda_function" "online_processor" {
     variables = {
       user_dict_bucket = aws_s3_bucket.doc_upload_bucket.id
       user_dict_path   = "user_dict/user_dict.txt"
+      user_dict_prefix = "user_dict"
     }
   }
   depends_on = [
@@ -146,7 +147,8 @@ data "aws_iam_policy_document" "online_processor_policy_doc" {
       "ec2:CreateNetworkInterface",
       "ec2:DescribeNetworkInterfaces",
       "ec2:DeleteNetworkInterface",
-      "iam:*"
+      "dynamodb:*"
+
     ]
     resources = ["*"]
   }
@@ -170,14 +172,16 @@ data "aws_iam_policy_document" "online_processor_policy_doc" {
     resources = ["arn:aws:logs:*:*:*"]
   }
 }
-
+data "aws_subnet" "selected" {
+  id = var.private_subnet_1
+}
 # Create Glue connection for jobs
 resource "aws_glue_connection" "glue_job_conn" {
   name = "glue-job-connection"
   connection_type = "NETWORK"
   physical_connection_requirements {
-    availability_zone = var.region
-    subnet_id         = var.public_subnet_1
+    availability_zone = data.aws_subnet.selected.availability_zone
+    subnet_id         = var.private_subnet_1
     security_group_id_list = [var.security_group]
   }
 }
@@ -273,28 +277,6 @@ resource "aws_iam_role_policy_attachment" "glue_job_policy_attach" {
   policy_arn = aws_iam_policy.glue_job_policy.arn
 }
 
-# Create DynamoDB tables
-resource "aws_dynamodb_table" "rag_meta_en_table" {
-  name           = "rag_translate_en_table"
-  billing_mode   = "PAY_PER_REQUEST"
-  hash_key       = "term"
-
-  attribute {
-    name = "term"
-    type = "S"
-  }
-}
-
-resource "aws_dynamodb_table" "rag_meta_chs_table" {
-  name           = "rag_translate_chs_table" 
-  billing_mode   = "PAY_PER_REQUEST"
-  hash_key       = "term"
-
-  attribute {
-    name = "term" 
-    type = "S"
-  }
-}
 resource "random_pet" "this" {
   length = 2
 }
