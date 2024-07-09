@@ -100,8 +100,7 @@ resource "aws_lambda_function" "online_processor" {
   environment {
     variables = {
       user_dict_bucket = aws_s3_bucket.doc_upload_bucket.id
-      user_dict_path   = "user_dict/user_dict.txt"
-      user_dict_prefix = "user_dict"
+      user_dict_prefix = "translate"
     }
   }
   depends_on = [
@@ -215,9 +214,10 @@ resource "aws_glue_job" "ingest_ddb_job" {
   default_arguments = {
     "--dynamodb_table_name" = "rag-translate-table"
     "--REGION"              = var.region
+    "--dictionary_name"     = "dictionary_1",
     "--additional-python-modules" = "boto3>=1.28.52,botocore>=1.31.52"
     "--bucket"              =  aws_s3_bucket.doc_upload_bucket.bucket
-    "--object_key"          = "kb/multilingual_terminology.json"
+    "--object_key"          = "translate/dictionary_1/dictionary_1_part_a.json"
     "--continuous-log-logGroup"          = aws_cloudwatch_log_group.glue_python_job.name
     "--enable-continuous-cloudwatch-log" = "true"
     "--enable-continuous-log-filter"     = "true"
@@ -263,7 +263,10 @@ resource "aws_iam_policy" "glue_job_policy" {
         "s3:Put*",
         "dynamodb:*",
         "glue:*",
-        "ec2:*"
+        "ec2:*",
+        "logs:CreateLogGroup",
+        "logs:CreateLogStream",
+        "logs:PutLogEvents"
       ],
       "Resource": "*"
     }
