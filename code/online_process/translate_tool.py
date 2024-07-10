@@ -9,23 +9,10 @@ import time
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
-s3 = boto3.client('s3')
-
-bucket = os.environ.get('user_dict_bucket')
-s3_path = os.environ.get('user_dict_path')
-local_file = '/tmp/user_dict.txt' # /tmp 只有这个路径是可以写的
-
-# 下载文件
-try:
-    s3.download_file(bucket, s3_path, local_file)
-    print(f'File downloaded successfully: {local_file}')
-except Exception as e:
-    print(f'Error downloading file: {e}')
-
-dynamodb = boto3.resource('dynamodb')
+dictionary_info_dict = {}
+ddb_table_dict = {}
 bedrock = boto3.client(service_name='bedrock-runtime')
-ddb_en_table = dynamodb.Table('rag_translate_en_table')
-ddb_chs_table = dynamodb.Table('rag_translate_chs_table')
+dynamodb = boto3.resource('dynamodb')
 
 class APIException(Exception):
     def __init__(self, message, code: str = None):
@@ -52,16 +39,8 @@ def handle_error(func):
 
     return wrapper
 
-def retrieve_term_mapping(term_list, src_lang, dest_lang):
+def retrieve_term_mapping(term_list, ddb_table, dest_lang):
     mapping_list = []
-    ddb_table = None
-    global ddb_en_table, ddb_chs_table
-    if src_lang == 'EN':
-        ddb_table = ddb_en_table
-    elif src_lang == 'CHS':
-        ddb_table = ddb_chs_table
-    else:
-        raise RuntimeError(f"unsupported {src_lang}")
 
     for term in term_list:
         print(f"find mapping of {term}")
@@ -163,14 +142,80 @@ def invoke_bedrock(model_id, prompt, max_tokens=4096, prefill_str='<translation>
 
     return None
 
+def mfm_segment(text, dictionary):
+    words = []
+    while text:
+        for i in range(len(text), 0, -1):
+            if text[:i] in dictionary:
+                words.append(text[:i])
+                text = text[i:]
+                break
+        else:
+            text = text[1:]
+    return list(set(words))
+
+def get_dictionary_status(bucket, s3_prefix, dictionary_id):
+    s3 = boto3.client('s3')
+
+    s3_key = f"{s3_prefix}/{dictionary_id}/user_dict.txt"
+
+    response = s3.head_object(Bucket=bucket, Key=s3_key)
+    last_modified = response['LastModified']
+
+    if dictionary_id in dictionary_info_dict:
+        prev_last_modified = dictionary_info_dict[dictionary_id].get('last_modified', '1970-00-00 00:00:00+00:00')
+        if last_modified == prev_last_modified:
+            return False, last_modified
+
+    return True, last_modified
+
+def refresh_dictionary(bucket, s3_prefix, dictionary_id) -> bool:
+    global dictionary_info_dict
+
+    try:
+        assert dictionary_id is not None
+
+        user_dict_s3_key = f"{s3_prefix}/{dictionary_id}/user_dict.txt"
+        print(f'bucket: {bucket}')
+        print(f'user_dict_s3_key: {user_dict_s3_key}')
+
+        is_updated, last_modified = get_dictionary_status(bucket, s3_prefix, dictionary_id)
+
+        if is_updated:
+            s3 = boto3.client('s3')
+            # /tmp 只有这个路径是可以写的
+            local_file = f'/tmp/{dictionary_id}_user_dict.txt'
+
+            # 下载文件
+            try:
+                s3.download_file(bucket, user_dict_s3_key, local_file)
+                with open(local_file, 'r') as file:
+                    lines = file.readlines()
+                    terms = set([ item.strip() for item in lines ])
+                    # print(f"terms: {terms}")
+                    dictionary_info_dict[dictionary_id] = {"last_modified" : last_modified, "terms" : terms}
+
+                print(f'File downloaded successfully: {local_file}')
+            except Exception as e:
+                print(f'Error downloading file: {e}')
+
+        if dictionary_id not in dictionary_info_dict:
+            raise RuntimeError(f"There is no data for {dictionary_id}")
+
+        return True
+
+    except Exception as e:
+        print(f'refresh_dictionary err: {e}')
+        return False
+
+
 # 对文本进行分词
 @handle_error
 def lambda_handler(event, context):
-    jieba.load_userdict(local_file)
-
     src_content = event.get('src_content')
     src_lang = event.get('src_lang')
     dest_lang = event.get('dest_lang')
+    dictionary_id = event.get('dictionary_id') # dictionary_id is table 
     request_type = event.get('request_type')
     model_id = event.get('model_id')
 
@@ -180,28 +225,63 @@ def lambda_handler(event, context):
         return {'error': 'src_lang is required'}
     if not dest_lang:
         return {'error': 'dest_lang is required'}
+    if not dictionary_id:
+        return {'error': 'dictionary_id is required'}    
     if request_type not in ['segment_only', 'term_mapping', 'translate']:
         return {"error": "request_type should be ['segment_only', '，term_mapping', 'translate']"}
     
-    result = pseg.cut(src_content.replace(' ', '_'))
-    words = list(set([ item.word.replace('_', ' ') for item in result if item.flag == 'term' ]))
+    bucket = os.environ.get('user_dict_bucket')
+    s3_prefix = os.environ.get('user_dict_prefix')
+
+    start_time = time.time()
+    succeded = refresh_dictionary(bucket, s3_prefix, dictionary_id)
+    end_time = time.time()
+    elapsed_time = end_time - start_time
+    print(f"[1] Elapsed time: {elapsed_time} seconds")
+
+    if not succeded:
+        return { "error" : f"There is no user_dict for {dictionary_id} on S3 " }
+
+    global dictionary_info_dict, ddb_table_dict
+
+    term_list = dictionary_info_dict.get(dictionary_id).get('terms')
+    # print(f"term_list: {term_list}")
+
+    start_time = time.time()
+    words = mfm_segment(src_content, term_list)
+    end_time = time.time()
+    elapsed_time = end_time - start_time
+    print(f"[2] Elapsed time: {elapsed_time} seconds")
 
     if request_type == 'segment_only':
         return {'words': words}
 
+    if dictionary_id not in ddb_table_dict:
+        ddb_table_name = f"translate_mapping_{dictionary_id}"
+        ddb_table_dict[dictionary_id] = dynamodb.Table(ddb_table_name)
+
     json_obj = {}
 
-    multilingual_term_mapping = retrieve_term_mapping(words, src_lang, dest_lang)
+    start_time = time.time()
+    multilingual_term_mapping = retrieve_term_mapping(words, ddb_table_dict[dictionary_id], dest_lang)
+    end_time = time.time()
+    elapsed_time = end_time - start_time
+    print(f"[3] Elapsed time: {elapsed_time} seconds")
+
     json_obj["term_mapping"] = multilingual_term_mapping
     if request_type == 'term_mapping':
         return json_obj
 
+    start_time = time.time()
     prompt = construct_translate_prompt(src_content, src_lang, dest_lang, multilingual_term_mapping)
     print("prompt:")
     print(prompt)
 
     result = invoke_bedrock(model_id, prompt)
     json_obj["result"] = result
+    end_time = time.time()
+    elapsed_time = end_time - start_time
+    print(f"[4] Elapsed time: {elapsed_time} seconds")
     
     return json_obj
     
