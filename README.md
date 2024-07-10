@@ -16,6 +16,8 @@
 
 [飞书](https://amzn-chn.feishu.cn/docx/HxO8dK41UosPFvxAylScW6Xunah?from=from_copylink)
 
+[terraform 部署文档](./terraform_deployment.md)
+
 ### 调用方式：
 
 - 离线方式(仅翻译接口，按照文件级别进行并发推理)
