@@ -1,4 +1,6 @@
-# DynamoDB-RAG
+# DynamoDB-RAG（废弃, 参见新Repo）
+
+新版本Repo: [aws-samples/rag-based-translation-with-dynamodb-and-bedrock](https://github.com/aws-samples/rag-based-translation-with-dynamodb-and-bedrock)
 
 ## 界面演示效果
 
@@ -106,7 +108,7 @@ nohup streamlit run home.py &
             "dictionary_id": "dictionary_1",
             "model_id":"anthropic.claude-3-sonnet-20240229-v1:0"
         }
-
+        
         #EN => CHS
         {
             "src_content":"Suspicious Fisherman’s Toast can achieve the following effect: all characters in the team gain 88 points of DEF, lasting for 300 seconds. In multi-player mode, this effect only applies to your own characters. Akai Maou Handbook, can Akai Maou be caught?",
@@ -116,7 +118,7 @@ nohup streamlit run home.py &
             "dictionary_id": "dictionary_1",
             "model_id":"anthropic.claude-3-sonnet-20240229-v1:0"
         }
-
+        
         #EN => VI
         {
             "src_content":"Suspicious Fisherman’s Toast can achieve the following effect: all characters in the team gain 88 points of DEF, lasting for 300 seconds. In multi-player mode, this effect only applies to your own characters. Akai Maou Handbook, can Akai Maou be caught?",
@@ -126,7 +128,7 @@ nohup streamlit run home.py &
             "dictionary_id": "dictionary_1",
             "model_id":"anthropic.claude-3-sonnet-20240229-v1:0"
         }
-
+        
         #VI => CHS
         {
             "src_content":"Bánh Người Cá Kỳ Lạ có thể đạt được hiệu quả sau: tất cả nhân vật trong đội nhận được 88 điểm DEF, kéo dài trong 300 giây. Trong chế độ đa người chơi, hiệu quả này chỉ áp dụng cho nhân vật của riêng bạn. Xích Ma Vương Handbook, có thể bắt được Xích Ma Vương không?",
